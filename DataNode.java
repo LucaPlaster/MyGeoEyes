@@ -1,27 +1,32 @@
 /*
     Sistemas Distribuídos
-    
+
     LUCA MASCARENHAS PLASTER - 202014610
     MARCOS REGES MOTA - 202003598
 */
 
-
 import java.io.File;
 import java.io.FileOutputStream; 
-import java.io.FileInputStream;  
 import java.io.IOException;
 import java.nio.file.Files;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.HashMap;
-import java.util.Map;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
+/**
+ * Classe que representa um nó de dados (DataNode) responsável por armazenar partes de imagens.
+ * Cada parte é salva como um arquivo no diretório local do DataNode.
+ */
 public class DataNode extends UnicastRemoteObject implements DataNodeInterface {
     private static final String STORAGE_DIR = "data_node_storage/";
     private String dataNodeId;
 
+    /**
+     * Construtor do DataNode.
+     * @param dataNodeId Identificador único para este DataNode.
+     * @throws RemoteException Em caso de falha de comunicação RMI.
+     */
     protected DataNode(String dataNodeId) throws RemoteException {
         this.dataNodeId = dataNodeId;
         File dir = new File(STORAGE_DIR);
@@ -32,32 +37,30 @@ public class DataNode extends UnicastRemoteObject implements DataNodeInterface {
 
     @Override
     public boolean uploadPart(String imageName, int partNumber, byte[] data) throws RemoteException {
-        try {
-            FileOutputStream fos = new FileOutputStream(STORAGE_DIR + imageName + "_part" + partNumber);
+        try (FileOutputStream fos = new FileOutputStream(STORAGE_DIR + imageName + "_part" + partNumber)) {
             fos.write(data);
-            fos.close();
             System.out.println("DataNode " + dataNodeId + ": Parte " + partNumber + " da imagem '" + imageName + "' armazenada.");
             return true;
         } catch (IOException e) {
-            System.err.println("Erro ao armazenar a parte da imagem: " + e.getMessage());
+            System.err.println("DataNode " + dataNodeId + ": Erro ao armazenar a parte da imagem - " + e.getMessage());
             return false;
         }
     }
 
     @Override
     public byte[] downloadPart(String imageName, int partNumber) throws RemoteException {
-        try {
-            File file = new File(STORAGE_DIR + imageName + "_part" + partNumber);
-            if (file.exists()) {
+        File file = new File(STORAGE_DIR + imageName + "_part" + partNumber);
+        if (file.exists()) {
+            try {
                 byte[] data = Files.readAllBytes(file.toPath());
                 System.out.println("DataNode " + dataNodeId + ": Parte " + partNumber + " da imagem '" + imageName + "' enviada.");
                 return data;
-            } else {
-                System.out.println("DataNode " + dataNodeId + ": Parte " + partNumber + " da imagem '" + imageName + "' não encontrada.");
+            } catch (IOException e) {
+                System.err.println("DataNode " + dataNodeId + ": Erro ao ler a parte da imagem - " + e.getMessage());
                 return null;
             }
-        } catch (IOException e) {
-            System.err.println("Erro ao ler a parte da imagem: " + e.getMessage());
+        } else {
+            System.out.println("DataNode " + dataNodeId + ": Parte " + partNumber + " da imagem '" + imageName + "' não encontrada.");
             return null;
         }
     }
@@ -74,7 +77,21 @@ public class DataNode extends UnicastRemoteObject implements DataNodeInterface {
         }
     }
 
+    /**
+     * Método para verificar se o DataNode está acessível. 
+     * Retorna sempre true se o DataNode puder ser contactado via RMI.
+     */
+    @Override
+    public boolean ping() throws RemoteException {
+        return true;
+    }
+
     public static void main(String[] args) {
+        if (args.length < 1) {
+            System.err.println("Uso: java DataNode <DataNodeId>");
+            System.exit(1);
+        }
+
         try {
             String dataNodeId = args[0];
             DataNode dataNode = new DataNode(dataNodeId);
@@ -89,6 +106,7 @@ public class DataNode extends UnicastRemoteObject implements DataNodeInterface {
 
         } catch (Exception e) {
             System.err.println("Erro no DataNode: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

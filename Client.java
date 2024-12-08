@@ -6,15 +6,32 @@
 */
 
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileInputStream;  
 import java.io.FileOutputStream; 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.*;
 
-public class Client {
+public class Client extends UnicastRemoteObject implements SubscriberInterface {
     private static final String DOWNLOAD_DIR = "client_downloads/";
+    private static MasterServerInterface master;
+    private static Scanner scanner;
+
+    // Construtor necessário devido ao UnicastRemoteObject
+    protected Client() throws RemoteException {
+        super();
+    }
+
+    @Override
+    public void notify(String eventType, String imageName) throws RemoteException {
+        System.out.println("\n[NOTIFICAÇÃO] Evento: " + eventType + " | Imagem: " + imageName);
+        System.out.print("Pressione ENTER para continuar...");
+        new Scanner(System.in).nextLine();
+    }
 
     public static void main(String[] args) {
         try {
@@ -25,10 +42,15 @@ public class Client {
             }
 
             Registry registry = LocateRegistry.getRegistry();
-            MasterServerInterface master = (MasterServerInterface) registry.lookup("MasterServer");
-            Scanner scanner = new Scanner(System.in);
-            String option;
+            master = (MasterServerInterface) registry.lookup("MasterServer");
 
+            // Cria uma instância do cliente remoto para receber notificações
+            Client client = new Client();
+            // O próprio "client" já é um objeto remoto, pois estendemos UnicastRemoteObject.
+
+            scanner = new Scanner(System.in);
+
+            String option;
             do {
                 System.out.println("\nEscolha uma opção:");
                 System.out.println("1. Upload de imagem");
@@ -36,40 +58,53 @@ public class Client {
                 System.out.println("3. Baixar imagem");
                 System.out.println("4. Deletar imagem");
                 System.out.println("5. Teste de desempenho");
-                System.out.println("6. Sair");
+                System.out.println("6. Inscrever-se em um tipo de evento (subscribe)");
+                System.out.println("7. Cancelar inscrição em um tipo de evento (unsubscribe)");
+                System.out.println("8. Listar tipos de eventos disponíveis");
+                System.out.println("9. Sair");
                 System.out.print("Opção: ");
                 option = scanner.nextLine();
 
                 switch (option) {
                     case "1":
-                        uploadImage(master, scanner);
+                        uploadImage();
                         break;
                     case "2":
-                        listImages(master);
+                        listImages();
                         break;
                     case "3":
-                        downloadImage(master, scanner);
+                        downloadImage();
                         break;
                     case "4":
-                        deleteImage(master, scanner);
+                        deleteImage();
                         break;
                     case "5":
-                        testPerformance(master, scanner);
+                        testPerformance();
                         break;
                     case "6":
+                        subscribeToEvent();
+                        break;
+                    case "7":
+                        unsubscribeFromEvent();
+                        break;
+                    case "8":
+                        listEventTypes();
+                        break;
+                    case "9":
                         System.out.println("Encerrando o cliente.");
                         break;
                     default:
                         System.out.println("Opção inválida.");
                 }
-            } while (!option.equals("6"));
+            } while (!option.equals("9"));
 
         } catch (Exception e) {
             System.err.println("Erro no cliente: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    private static void uploadImage(MasterServerInterface master, Scanner scanner) {
+    private static void uploadImage() {
         try {
             System.out.print("Digite o caminho da imagem a ser enviada: ");
             String filePath = scanner.nextLine();
@@ -98,7 +133,7 @@ public class Client {
         }
     }
 
-    private static void listImages(MasterServerInterface master) {
+    private static void listImages() {
         try {
             List<String> images = master.listImages();
             System.out.println("Imagens disponíveis:");
@@ -110,7 +145,7 @@ public class Client {
         }
     }
 
-    private static void downloadImage(MasterServerInterface master, Scanner scanner) {
+    private static void downloadImage() {
         try {
             System.out.print("Digite o nome da imagem a ser baixada: ");
             String imageName = scanner.nextLine();
@@ -154,7 +189,7 @@ public class Client {
         }
     }
 
-    private static void deleteImage(MasterServerInterface master, Scanner scanner) {
+    private static void deleteImage() {
         try {
             System.out.print("Digite o nome da imagem a ser deletada: ");
             String imageName = scanner.nextLine();
@@ -169,7 +204,7 @@ public class Client {
         }
     }
 
-    private static void testPerformance(MasterServerInterface master, Scanner scanner) {
+    private static void testPerformance() {
         try {
             System.out.print("Digite o número de imagens para o teste (10, 50, 200): ");
             int numImages = Integer.parseInt(scanner.nextLine());
@@ -182,7 +217,7 @@ public class Client {
             // Teste de inserção
             long startInsertion = System.currentTimeMillis();
             for (String imageName : imageNames) {
-                byte[] imageData = new byte[1024 * 50]; // Imagem de 50KB
+                byte[] imageData = new byte[1024 * 50]; // Imagem de 50KB (exemplo)
                 new Random().nextBytes(imageData);
                 master.storeImage(imageName, imageData, 5);
             }
@@ -205,6 +240,40 @@ public class Client {
 
         } catch (Exception e) {
             System.err.println("Erro no teste de desempenho: " + e.getMessage());
+        }
+    }
+
+    private static void subscribeToEvent() {
+        try {
+            System.out.print("Digite o tipo de evento (ex: IMAGE_ADDED, IMAGE_DELETED): ");
+            String eventType = scanner.nextLine();
+            master.subscribe(eventType, (SubscriberInterface) UnicastRemoteObject.exportObject(new Client(), 0));
+            System.out.println("Inscrito com sucesso no evento: " + eventType);
+        } catch (Exception e) {
+            System.err.println("Erro ao assinar o evento: " + e.getMessage());
+        }
+    }
+
+    private static void unsubscribeFromEvent() {
+        try {
+            System.out.print("Digite o tipo de evento (ex: IMAGE_ADDED, IMAGE_DELETED): ");
+            String eventType = scanner.nextLine();
+            master.unsubscribe(eventType, (SubscriberInterface) UnicastRemoteObject.exportObject(new Client(), 0));
+            System.out.println("Cancelada a inscrição do evento: " + eventType);
+        } catch (Exception e) {
+            System.err.println("Erro ao cancelar a assinatura do evento: " + e.getMessage());
+        }
+    }
+
+    private static void listEventTypes() {
+        try {
+            List<String> events = master.listEventTypes();
+            System.out.println("Tipos de eventos disponíveis:");
+            for (String evt : events) {
+                System.out.println("- " + evt);
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao listar tipos de eventos: " + e.getMessage());
         }
     }
 }
