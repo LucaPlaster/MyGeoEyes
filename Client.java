@@ -41,7 +41,7 @@ public class Client extends UnicastRemoteObject implements SubscriberInterface {
                 dir.mkdirs();
             }
 
-            Registry registry = LocateRegistry.getRegistry();
+            Registry registry = LocateRegistry.getRegistry("localhost", 1097);
             master = (MasterServerInterface) registry.lookup("MasterServer");
 
             // Cria uma instância do cliente remoto para receber notificações

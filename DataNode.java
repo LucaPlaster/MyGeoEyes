@@ -95,7 +95,7 @@ public class DataNode extends UnicastRemoteObject implements DataNodeInterface {
         try {
             String dataNodeId = args[0];
             DataNode dataNode = new DataNode(dataNodeId);
-            Registry registry = LocateRegistry.getRegistry();
+            Registry registry = LocateRegistry.getRegistry("localhost", 1097);
             registry.rebind("DataNode_" + dataNodeId, dataNode);
             System.out.println("DataNode " + dataNodeId + " registrado no RMI Registry.");
 
