@@ -51,9 +51,14 @@ public class MasterServer extends UnicastRemoteObject implements MasterServerInt
 
     @Override
     public void registerDataNode(String dataNodeId, DataNodeInterface dataNode) throws RemoteException {
-        dataNodes.put(dataNodeId, dataNode);
-        System.out.println("DataNode " + dataNodeId + " registrado.");
+    Registry registry = LocateRegistry.getRegistry("localhost", 1098); 
+    registry.rebind("DataNode_" + dataNodeId, dataNode);
+    System.out.println("Datanode " + dataNodeId + " registrado com sucesso");
+
+    // Adicionar o DataNode ao mapa dataNodes
+    dataNodes.put(dataNodeId, dataNode);
     }
+
 
     /**
      * Caso queira remover DataNodes manualmente, este método pode estar na interface.  
@@ -265,8 +270,9 @@ public class MasterServer extends UnicastRemoteObject implements MasterServerInt
                 replicationFactor = Integer.parseInt(args[0]);
             }
             MasterServer masterServer = new MasterServer(replicationFactor);
-            Registry registry = LocateRegistry.createRegistry(1097);
+            Registry registry = LocateRegistry.getRegistry("localhost", 1098);
             registry.rebind("MasterServer", masterServer);
+
             System.out.println("MasterServer iniciado e registrado no RMI Registry.");
         } catch (Exception e) {
             System.err.println("Erro no MasterServer: " + e.getMessage());
