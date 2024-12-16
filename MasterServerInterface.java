@@ -17,6 +17,8 @@ public interface MasterServerInterface extends Remote {
     Map<Integer, DataNodeInterface> getImageParts(String imageName) throws RemoteException;
     boolean storeImage(String imageName, byte[] imageData, int numParts) throws RemoteException;
     boolean deleteImage(String imageName) throws RemoteException;
+    public void handleDataNodeFailure(String dataNodeId) throws RemoteException;
+    
 
     // -------------------------
     // Métodos para Pub/Sub
